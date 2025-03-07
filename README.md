@@ -46,7 +46,7 @@ This project implements a quantum-enhanced machine learning system for detecting
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/nathanielketema/methane-detection.git
+git clone https://github.com/nathanielketema/methane-leak-detection.git
 ```
 
 2. Install dependencies:
