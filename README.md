@@ -21,19 +21,21 @@ This project implements a quantum-enhanced machine learning system for detecting
 
 ## Project Structure
 
+```plaintext
 ├── data/
-│ ├── raw/ # Raw sensor data
-│ └── processed/ # Processed and cleaned data
+│   ├── raw/             # Raw sensor data
+│   └── processed/       # Processed and cleaned data
 ├── src/
-│ ├── data_processing.py # Data cleaning and preprocessing
-│ ├── feature_engineering.py # Feature extraction and engineering
-│ ├── models/
-│ │ └── quantum_gaussian_regression.py
-│ ├── drone_navigation.py # Drone path planning
-│ ├── visualization.py # Data visualization
-│ └── config.py # Configuration parameters
-├── methaneDetection.py # Main execution script
+│   ├── data_processing.py      # Data cleaning and preprocessing
+│   ├── feature_engineering.py  # Feature extraction and engineering
+│   ├── models/
+│   │   └── quantum_gaussian_regression.py
+│   ├── drone_navigation.py     # Drone path planning
+│   ├── visualization.py        # Data visualization
+│   └── config.py               # Configuration parameters
+├── methaneDetection.py         # Main execution script
 └── README.md
+```
 
 ## Installation
 
@@ -81,4 +83,13 @@ The input data should include the following columns:
 
 ## License
 
+Copyright © 2025. All Rights Reserved.
+
+This project and its contents are proprietary and confidential. No part of this project may be reproduced, distributed, or transmitted in any form or by any means, including photocopying, recording, or other electronic or mechanical methods, without the prior written permission of the copyright holder.
+
+Unauthorized copying, modification, distribution, or use of this software is strictly prohibited.
+
+## Contact
+
+nathanielketema@gmail.com
 
