@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import animation
 
-def plot_methane_distribution(data: pd.DataFrame, time_filter=None, show=True, save_path=None):
+def plot_methane_distribution(data: pd.DataFrame, time_filter=None, show=True, save_path=None, tracer_column='tracer_concentration'):
     """
     Plots a scatter map of methane tracer concentration over geographical coordinates.
     
@@ -25,7 +25,7 @@ def plot_methane_distribution(data: pd.DataFrame, time_filter=None, show=True, s
     
     lat = data['latitude']
     lon = data['longitude']
-    tracer = data['tracer concentration']
+    tracer = data[tracer_column]
     
     fig, ax = plt.subplots(figsize=(8, 6))
     scatter = ax.scatter(lon, lat, c=tracer, cmap='viridis', s=50, edgecolor='k')
@@ -108,7 +108,7 @@ if __name__ == "__main__":
         'Time (UTC)': np.repeat(times, 10),
         'latitude': np.random.uniform(35.0, 35.5, size=len(times) * 10),
         'longitude': np.random.uniform(-120.0, -119.5, size=len(times) * 10),
-        'tracer concentration': np.random.uniform(0, 1, size=len(times) * 10)
+        'tracer_concentration': np.random.uniform(0, 1, size=len(times) * 10)
     })
     
     # Plot a static distribution for the first time slice.

@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import numpy as np
 
 from src.data_processing import process_data
 from src.feature_engineering import extract_features
@@ -19,21 +20,59 @@ def main():
     features = extract_features(processed_data)
     
     # Check that target variable exists
-    if 'tracer concentration' not in features.columns:
-        raise ValueError("Column 'tracer concentration' not found in data.")
+    if 'tracer_concentration' not in features.columns:
+        raise ValueError("Column 'tracer_concentration' not found in data.")
     
     # 3. Prepare training data
-    # For demonstration, we'll assume the following columns are features:
-    # 'elapsed_minutes', 'wind_speed', 'temperature (C)'.
-    # We drop columns that aren't used as features (like spatial coordinates and time).
-    feature_columns = ['elapsed_minutes', 'wind_speed', 'temperature (C)']
-    # Ensure these columns exist in the dataset (add more if needed)
-    missing = [col for col in feature_columns if col not in features.columns]
-    if missing:
-        raise ValueError(f"Missing expected feature columns: {missing}")
-
+    print("Preparing training data...")
+    
+    # Define feature columns for model training
+    feature_columns = ['time_numeric', 'u_west_to_east_wind', 'temprature']
+    
+    # Sample a smaller subset of data for training
+    sample_size = min(10000, len(features))
+    features = features.sample(n=sample_size, random_state=42)
+    
+    # Convert time column to numeric (seconds since first timestamp)
+    features['time_numeric'] = pd.to_datetime(features['time']).astype(np.int64) // 10**9
+    features['time_numeric'] = features['time_numeric'] - features['time_numeric'].min()
+    
+    # Get complete rows only and ensure we have at least 5 valid points
+    required_columns = ['latitude', 'longitude', 'time', 'u_west_to_east_wind', 'temprature']
+    
+    # First ensure we have enough valid rows in processed_data
+    valid_data = processed_data.dropna(subset=required_columns)
+    
+    # Sort by time to ensure we get the first 5 chronological points
+    valid_data = valid_data.sort_values('time')
+    
+    if len(valid_data) < 5:
+        raise ValueError("Not enough valid data points for navigation")
+        
+    # Convert time to numeric for the first 5 points
+    valid_times = pd.to_datetime(valid_data['time'].iloc[:5]).astype(np.int64) // 10**9
+    time_numeric = valid_times - valid_times.min()
+    
+    navigation_data = {
+        'latitude': valid_data['latitude'].iloc[:5],
+        'longitude': valid_data['longitude'].iloc[:5],
+        'time_numeric': time_numeric,
+        'u_west_to_east_wind': valid_data['u_west_to_east_wind'].iloc[:5],
+        'temprature': valid_data['temprature'].iloc[:5]
+    }
+    
+    # Verify no NaN values in navigation data
+    nav_df = pd.DataFrame(navigation_data)
+    if nav_df.isna().any().any():
+        print("Columns with NaN values:", nav_df.columns[nav_df.isna().any()].tolist())
+        raise ValueError("NaN values found in navigation data")
+    
+    # Prepare model input data
     X = features[feature_columns].values
-    y = features['tracer concentration'].values
+    y = features['tracer_concentration'].values
+    
+    # Clear features DataFrame to free memory
+    del features
     
     # 4. Train the regression model
     print("Training the regression model...")
@@ -41,20 +80,18 @@ def main():
     model.fit(X, y)
     
     # 5. Simulate drone navigation decision
-    # For this demonstration, use a subset of candidate locations.
-    candidate_data = features[['elapsed_minutes', 'wind_speed', 'temperature (C)', 'latitude', 'longitude']].head(5)
-    current_position = (features['latitude'].iloc[0], features['longitude'].iloc[0])
     print("Simulating drone navigation...")
-    next_waypoint, prediction, uncertainty = simulate_drone_navigation(model, candidate_data, current_position)
+    current_position = (navigation_data['latitude'].iloc[0], navigation_data['longitude'].iloc[0])
+    next_waypoint, prediction, uncertainty = simulate_drone_navigation(model, pd.DataFrame(navigation_data), current_position)
     
     # 6. Visualization
     print("Generating visualization of methane distribution...")
     # Use the earliest time slice for the static plot if available.
     if 'Time (UTC)' in processed_data.columns:
         sample_time = pd.to_datetime(processed_data['Time (UTC)']).min()
-        plot_methane_distribution(processed_data, time_filter=sample_time)
+        plot_methane_distribution(processed_data, time_filter=sample_time, tracer_column='tracer_concentration')
     else:
-        plot_methane_distribution(processed_data)
+        plot_methane_distribution(processed_data, tracer_column='tracer_concentration')
     
     print("Project execution complete.")
 
