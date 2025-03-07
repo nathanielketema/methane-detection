@@ -34,7 +34,7 @@ This project implements a quantum-enhanced machine learning system for detecting
 │   ├── drone_navigation.py     # Drone path planning
 │   ├── visualization.py        # Data visualization
 │   └── config.py               # Configuration parameters
-├── methaneDetection.py         # Main execution script
+├── methane_leak_detection.py         # Main execution script
 ├── requirements.txt
 ├── LICENSE
 └── README.md
@@ -58,7 +58,7 @@ pip install -r requirements.txt
 
 Run the main script:
 ```bash
-python3 methaneDetection.py
+python3 methane_leak_detection.py
 ```
 
 This will:
