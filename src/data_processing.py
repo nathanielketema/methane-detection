@@ -1,10 +1,6 @@
 import os
 import pandas as pd
-
-RAW_DATA_PATH = "data/raw"
-PROCESSED_DATA_PATH = "data/processed"
-FILE_NAME = "mehane_data.csv"
-PROCESSED_FILE = "processed_methane_data.csv"
+from src.config import RAW_DATA_PATH, PROCESSED_DATA_PATH, FILE_NAME, PROCESSED_FILE
 
 def load_raw_data():
     full_path = os.path.join(RAW_DATA_PATH, FILE_NAME)
