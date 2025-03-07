@@ -77,14 +77,6 @@ The input data should include the following columns:
 - Temperature
 - Tracer concentration (target variable)
 
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
-
 ## License
 
 Copyright © 2025. All Rights Reserved.
