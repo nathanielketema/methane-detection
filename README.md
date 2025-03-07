@@ -30,11 +30,15 @@ This project implements a quantum-enhanced machine learning system for detecting
 │   ├── feature_engineering.py  # Feature extraction and engineering
 │   ├── models/
 │   │   └── quantum_gaussian_regression.py
+│   │   └── predictive_route_planner.py
 │   ├── drone_navigation.py     # Drone path planning
 │   ├── visualization.py        # Data visualization
 │   └── config.py               # Configuration parameters
 ├── methaneDetection.py         # Main execution script
+├── requirements.txt
+├── LICENSE
 └── README.md
+
 ```
 
 ## Installation
