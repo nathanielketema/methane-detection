@@ -51,10 +51,10 @@ def balance_data(data):
 def clean_data(data):
     # todo
     cleaned_data = data.dropna()
-    balanced_data = balance_data(cleaned_data)
+    cleaned_data = balance_data(cleaned_data)
     
     print("Data cleaned and balanced")
-    return balanced_data
+    return cleaned_data
 
 
 def process_data():
