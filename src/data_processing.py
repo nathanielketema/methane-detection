@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-from src.config import RAW_DATA_PATH, PROCESSED_DATA_PATH, FILE_NAME, PROCESSED_FILE
+from src.config import RAW_DATA_PATH, PROCESSED_DATA_PATH, FILE_NAME
 
 def load_raw_data():
     full_path = os.path.join(RAW_DATA_PATH, FILE_NAME)
@@ -14,23 +14,58 @@ def load_raw_data():
     
     return data
 
+    
+def balance_data(data):
+    """
+    Balance the dataset to have equal number of samples with 
+    tracer_concentration > 0 and tracer_concentration = 0.
+    """
+
+    positive_tracer = data[data['tracer_concentration'] > 0]
+    zero_tracer = data[data['tracer_concentration'] == 0]
+    
+    print(f"Original data distribution:")
+    print(f"  - Samples with tracer_concentration > 0: {len(positive_tracer)}")
+    print(f"  - Samples with tracer_concentration = 0: {len(zero_tracer)}")
+    
+    target_size = min(len(positive_tracer), len(zero_tracer))
+    
+    if len(positive_tracer) > target_size:
+        positive_tracer = positive_tracer.sample(n=target_size, random_state=42)
+    
+    if len(zero_tracer) > target_size:
+        zero_tracer = zero_tracer.sample(n=target_size, random_state=42)
+    
+    balanced_data = pd.concat([positive_tracer, zero_tracer])
+    
+    # Shuffle the data
+    balanced_data = balanced_data.sample(frac=1, random_state=42).reset_index(drop=True)
+    
+    print(f"Balanced data distribution:")
+    print(f"  - Samples with tracer_concentration > 0: {len(balanced_data[balanced_data['tracer_concentration'] > 0])}")
+    print(f"  - Samples with tracer_concentration = 0: {len(balanced_data[balanced_data['tracer_concentration'] == 0])}")
+    
+    return balanced_data
+
+
 def clean_data(data):
     # todo
     cleaned_data = data.dropna()
+    balanced_data = balance_data(cleaned_data)
     
-    print("Data cleaned: dropped missing values")
-    return cleaned_data
+    print("Data cleaned and balanced")
+    return balanced_data
+
 
 def process_data():
     raw_data = load_raw_data()
     processed_data = clean_data(raw_data)
     
-    # Ensure the processed data directory exists
     os.makedirs(PROCESSED_DATA_PATH, exist_ok=True)
     
-    output_file = os.path.join(PROCESSED_DATA_PATH, PROCESSED_FILE)
+    output_file = os.path.join(PROCESSED_DATA_PATH, "processed_methane_data.csv")
     processed_data.to_csv(output_file, index=False)
-    print(f"Processed data saved to {output_file}")
+    print(f"Processed and balanced data saved to {output_file}")
     
     return processed_data
 
