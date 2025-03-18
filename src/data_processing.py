@@ -49,8 +49,11 @@ def balance_data(data):
 
 
 def clean_data(data):
-    # todo
+    # Drop rows with missing values
     cleaned_data = data.dropna()
+    
+    cleaned_data = cleaned_data.drop(columns=['precipitation_rate'])
+    print("Removed precipitation_rate column (constant zero value)")
     cleaned_data = balance_data(cleaned_data)
     
     print("Data cleaned and balanced")
