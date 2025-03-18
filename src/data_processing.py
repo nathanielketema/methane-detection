@@ -54,6 +54,9 @@ def clean_data(data):
     
     cleaned_data = cleaned_data.drop(columns=['precipitation_rate'])
     print("Removed precipitation_rate column (constant zero value)")
+    # Add a boolean column 'leakage' based on tracer_concentration
+    cleaned_data['leakage'] = (cleaned_data['tracer_concentration'] > 0).astype(int)
+    print("Added 'leakage' column (1 if tracer_concentration > 0, 0 otherwise)")
     cleaned_data = balance_data(cleaned_data)
     
     print("Data cleaned and balanced")
