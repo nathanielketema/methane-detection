@@ -60,6 +60,9 @@ def clean_data(data):
     print("Added 'leakage' column (1 if tracer_concentration > 0, 0 otherwise)")
     
     cleaned_data = balance_data(cleaned_data)
+
+    # Normalize column names
+    cleaned_data.columns = [col.strip().lower() for col in data.columns]
     
     print("Data cleaned and balanced")
     return cleaned_data
