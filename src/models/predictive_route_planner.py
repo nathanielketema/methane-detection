@@ -31,27 +31,5 @@ def plan_next_location(model: QuantumGaussianRegression, candidate_features: pd.
     return selected_candidate, predictions[max_idx], uncertainties[max_idx]
 
 if __name__ == "__main__":
-    # Test the planner with dummy candidate data.
-    import matplotlib.pyplot as plt
-    
-    # Dummy candidate data including navigation coordinates and some features.
-    candidate_data = pd.DataFrame({
-        'elapsed_minutes': [30, 45, 60],
-        'wind_speed': [2.5, 3.0, 1.5],
-        'temperature (C)': [22, 23, 21],
-        'latitude': [35.0, 35.1, 35.2],
-        'longitude': [-120.0, -120.1, -120.2]
-    })
-    
-    # Create a dummy regression model and train it on a small dummy dataset.
-    model = QuantumGaussianRegression()
-    import numpy as np
-    X_dummy = np.array([[10, 2.0, 20], [20, 2.5, 21], [30, 3.0, 22], [40, 3.5, 23]])
-    y_dummy = np.array([0.1, 0.3, 0.5, 0.7])
-    model.fit(X_dummy, y_dummy)
-    
-    selected_candidate, pred, uncert = plan_next_location(model, candidate_data)
-    print("Selected candidate:")
-    print(selected_candidate)
-    print("Predicted tracer concentration:", pred)
-    print("Prediction uncertainty:", uncert)
+    print("Predictive Route Planner module - this module helps determine the best location for drone navigation")
+    print("Import and use this module in other scripts rather than running it directly.")

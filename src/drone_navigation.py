@@ -28,23 +28,5 @@ def simulate_drone_navigation(model, candidate_data, current_position):
     return next_waypoint, prediction, uncertainty
 
 if __name__ == "__main__":
-    # Create dummy candidate data that includes navigation coordinates and feature values.
-    candidate_data = pd.DataFrame({
-        'elapsed_minutes': [30, 45, 60],
-        'wind_speed': [2.5, 3.0, 1.5],
-        'temperature (C)': [22, 23, 21],
-        'latitude': [35.0, 35.1, 35.2],
-        'longitude': [-120.0, -120.1, -120.2]
-    })
-    
-    # Create a dummy regression model and train it on a small dummy dataset.
-    from src.models.quantum_gaussian_regression import QuantumGaussianRegression
-    import numpy as np
-    model = QuantumGaussianRegression()
-    X_dummy = np.array([[10, 2.0, 20], [20, 2.5, 21], [30, 3.0, 22], [40, 3.5, 23]])
-    y_dummy = np.array([0.1, 0.3, 0.5, 0.7])
-    model.fit(X_dummy, y_dummy)
-    
-    # Simulate navigation decision from a current position.
-    current_position = (35.0, -120.0)
-    simulate_drone_navigation(model, candidate_data, current_position)
+    print("Drone navigation module - this module provides drone navigation functionality")
+    print("Import and use this module in other scripts rather than running it directly.")

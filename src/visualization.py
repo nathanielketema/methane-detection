@@ -76,7 +76,7 @@ def animate_methane_distribution(data: pd.DataFrame, interval=1000, save_path=No
         subset = data[data['Time (UTC)'] == current_time]
         lat = subset['latitude']
         lon = subset['longitude']
-        tracer = subset['tracer concentration']
+        tracer = subset['tracer_concentration']
         scatter = ax.scatter(lon, lat, c=tracer, cmap='viridis', s=50, edgecolor='k')
         ax.set_title(f'Methane Distribution at {current_time}')
         ax.set_xlabel('Longitude')
@@ -101,19 +101,5 @@ def animate_methane_distribution(data: pd.DataFrame, interval=1000, save_path=No
     return ani
 
 if __name__ == "__main__":
-    # For testing purposes, we'll create a dummy DataFrame.
-    # In practice, replace this with your processed dataset.
-    times = pd.date_range(start="2022-04-26 12:00", end="2022-04-26 18:00", freq="6T")
-    dummy_data = pd.DataFrame({
-        'Time (UTC)': np.repeat(times, 10),
-        'latitude': np.random.uniform(35.0, 35.5, size=len(times) * 10),
-        'longitude': np.random.uniform(-120.0, -119.5, size=len(times) * 10),
-        'tracer_concentration': np.random.uniform(0, 1, size=len(times) * 10)
-    })
-    
-    # Plot a static distribution for the first time slice.
-    sample_time = times[0]
-    plot_methane_distribution(dummy_data, time_filter=sample_time)
-    
-    # Uncomment the following line to view the animation.
-    # animate_methane_distribution(dummy_data, interval=500)
+    print("Visualization module - this module provides functions for visualizing methane concentration data")
+    print("Import and use this module in other scripts rather than running it directly.")

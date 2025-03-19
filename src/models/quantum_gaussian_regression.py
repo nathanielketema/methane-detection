@@ -23,7 +23,7 @@ class QuantumGaussianRegression:
           y (np.ndarray): Target values with shape (n_samples,)
         """
         self.model.fit(X, y)
-        print("Model training complete.")
+        print("Quantum Gaussian Regression model training complete.")
     
     def predict(self, X):
         """
@@ -46,28 +46,5 @@ class QuantumGaussianRegression:
         return self.model.kernel_
 
 if __name__ == "__main__":
-    # For testing: create a dummy dataset and visualize the model predictions.
-    import matplotlib.pyplot as plt
-    
-    # Create dummy data: a sine wave with some noise
-    X = np.linspace(0, 10, 100).reshape(-1, 1)
-    y = np.sin(X).ravel() + np.random.normal(0, 0.1, X.shape[0])
-    
-    # Instantiate and train the model
-    qgr = QuantumGaussianRegression()
-    qgr.fit(X, y)
-    
-    # Predict on test set
-    X_test = np.linspace(0, 10, 100).reshape(-1, 1)
-    y_pred, sigma = qgr.predict(X_test)
-    
-    # Plot the predictions and uncertainty
-    plt.figure()
-    plt.plot(X, y, 'r.', markersize=10, label='Observations')
-    plt.plot(X_test, y_pred, 'b-', label='Prediction')
-    plt.fill_between(X_test.ravel(), y_pred - 1.96 * sigma, y_pred + 1.96 * sigma, alpha=0.2, color='blue')
-    plt.title("Quantum Gaussian Regression (Placeholder)")
-    plt.xlabel("X")
-    plt.ylabel("y")
-    plt.legend()
-    plt.show()
+    print("QuantumGaussianRegression module - this module provides regression for methane concentration prediction")
+    print("Import and use this module in other scripts rather than running it directly.")
