@@ -2,8 +2,20 @@ import os
 import pandas as pd
 from src.config import RAW_DATA_PATH, PROCESSED_DATA_PATH, FILE_NAME
 
-def load_raw_data():
-    full_path = os.path.join(RAW_DATA_PATH, FILE_NAME)
+def load_raw_data(file_name=None):
+    """
+    Load raw data from the configured raw data path.
+    
+    Parameters:
+        file_name (str, optional): Name of the file to load. If None, uses the default from config.
+        
+    Returns:
+        pd.DataFrame: The loaded raw data
+    """
+    if file_name is None:
+        file_name = FILE_NAME
+        
+    full_path = os.path.join(RAW_DATA_PATH, file_name)
     
     try:
         data = pd.read_csv(full_path)
@@ -20,7 +32,6 @@ def balance_data(data):
     Balance the dataset to have equal number of samples with 
     tracer_concentration > 0 and tracer_concentration = 0.
     """
-
     positive_tracer = data[data['tracer_concentration'] > 0]
     zero_tracer = data[data['tracer_concentration'] == 0]
     
@@ -68,17 +79,30 @@ def clean_data(data):
     return cleaned_data
 
 
-def process_data():
+def process_data(save_output=True):
+    """
+    Process the raw data by loading, cleaning, and balancing.
+    
+    Parameters:
+        save_output (bool): Whether to save the processed data to disk
+        
+    Returns:
+        pd.DataFrame: The processed data
+    """
     raw_data = load_raw_data()
     processed_data = clean_data(raw_data)
     
-    os.makedirs(PROCESSED_DATA_PATH, exist_ok=True)
-    
-    output_file = os.path.join(PROCESSED_DATA_PATH, "processed_methane_data.csv")
-    processed_data.to_csv(output_file, index=False)
-    print(f"Processed and balanced data saved to {output_file}")
+    if save_output:
+        os.makedirs(PROCESSED_DATA_PATH, exist_ok=True)
+        
+        output_file = os.path.join(PROCESSED_DATA_PATH, "processed_methane_data.csv")
+        processed_data.to_csv(output_file, index=False)
+        print(f"Processed and balanced data saved to {output_file}")
     
     return processed_data
 
 if __name__ == "__main__":
-    process_data()
+    print("Data processing module - processing raw methane leak detection data")
+    processed_data = process_data()
+    print(f"Processed data shape: {processed_data.shape}")
+    print(f"Columns: {processed_data.columns.tolist()}")
