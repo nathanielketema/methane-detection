@@ -1,96 +1,85 @@
 import pandas as pd
-import numpy as np
+from src.config import RAW_DATA_PATH
 
 from src.data_processing import process_data
 from src.feature_engineering import extract_features
+from src.data_preparation import prepare_training_data
+from src.models.methane_leak_classifier import MethaneLeakClassifier
 from src.models.quantum_gaussian_regression import QuantumGaussianRegression
 from src.drone_navigation import simulate_drone_navigation
-from src.visualization import plot_methane_distribution
+from src.visualization import plot_methane_distribution, animate_methane_distribution
 
 def main():
     print("Starting Methane Leak Detection Project...")
 
-    # 1. Process the raw data
-    print("Processing raw data...")
+    # 1. Process the raw data from data/raw directory
+    print("Processing raw data from", RAW_DATA_PATH)
     processed_data = process_data()
 
     # 2. Feature Engineering
     print("Extracting features from processed data...")
     features = extract_features(processed_data)
     
-    # Check that target variable exists
-    if 'tracer_concentration' not in features.columns:
-        raise ValueError("Column 'tracer_concentration' not found in data.")
-    
     # 3. Prepare training data
     print("Preparing training data...")
+    prepared_data = prepare_training_data(features, processed_data)
     
-    # Define feature columns for model training
-    feature_columns = ['time_numeric', 'u_west_to_east_wind', 'temprature']
+    # 4. Train the binary classification model to detect leak presence/absence
+    print("Training the methane leak classifier...")
+    classifier = MethaneLeakClassifier()
+    classifier.fit(prepared_data['X'], prepared_data['y_binary'], feature_names=prepared_data['feature_columns'])
     
-    # Sample a smaller subset of data for training
-    sample_size = min(10000, len(features))
-    features = features.sample(n=sample_size, random_state=42)
+    # 5. Use the classifier to predict if there's a leak
+    print("Detecting potential methane leaks...")
+    # For demonstration, we'll use the navigation data for prediction
+    nav_features = prepared_data['nav_df'][prepared_data['feature_columns']].values
+    leak_predictions = classifier.predict(nav_features)
     
-    # Convert time column to numeric (seconds since first timestamp)
-    features['time_numeric'] = pd.to_datetime(features['time']).astype(np.int64) // 10**9
-    features['time_numeric'] = features['time_numeric'] - features['time_numeric'].min()
+    leak_detected = any(leak_predictions == 1)
+    print(f"Leak detection result: {'Leak detected!' if leak_detected else 'No leak detected.'}")
     
-    # Get complete rows only and ensure we have at least 5 valid points
-    required_columns = ['latitude', 'longitude', 'time', 'u_west_to_east_wind', 'temprature']
-    
-    # First ensure we have enough valid rows in processed_data
-    valid_data = processed_data.dropna(subset=required_columns)
-    
-    # Sort by time to ensure we get the first 5 chronological points
-    valid_data = valid_data.sort_values('time')
-    
-    if len(valid_data) < 5:
-        raise ValueError("Not enough valid data points for navigation")
+    if leak_detected:
+        # 6. If leak is detected, train the regression model to predict concentration
+        print("Leak detected! Training the regression model to predict methane concentration...")
+        regression_model = QuantumGaussianRegression()
+        regression_model.fit(prepared_data['X'], prepared_data['y'])
         
-    # Convert time to numeric for the first 5 points
-    valid_times = pd.to_datetime(valid_data['time'].iloc[:5]).astype(np.int64) // 10**9
-    time_numeric = valid_times - valid_times.min()
-    
-    navigation_data = {
-        'latitude': valid_data['latitude'].iloc[:5],
-        'longitude': valid_data['longitude'].iloc[:5],
-        'time_numeric': time_numeric,
-        'u_west_to_east_wind': valid_data['u_west_to_east_wind'].iloc[:5],
-        'temprature': valid_data['temprature'].iloc[:5]
-    }
-    
-    # Verify no NaN values in navigation data
-    nav_df = pd.DataFrame(navigation_data)
-    if nav_df.isna().any().any():
-        print("Columns with NaN values:", nav_df.columns[nav_df.isna().any()].tolist())
-        raise ValueError("NaN values found in navigation data")
-    
-    # Prepare model input data
-    X = features[feature_columns].values
-    y = features['tracer_concentration'].values
-    
-    # Clear features DataFrame to free memory
-    del features
-    
-    # 4. Train the regression model
-    print("Training the regression model...")
-    model = QuantumGaussianRegression()
-    model.fit(X, y)
-    
-    # 5. Simulate drone navigation decision
-    print("Simulating drone navigation...")
-    current_position = (navigation_data['latitude'].iloc[0], navigation_data['longitude'].iloc[0])
-    next_waypoint, prediction, uncertainty = simulate_drone_navigation(model, pd.DataFrame(navigation_data), current_position)
-    
-    # 6. Visualization
-    print("Generating visualization of methane distribution...")
-    # Use the earliest time slice for the static plot if available.
-    if 'Time (UTC)' in processed_data.columns:
-        sample_time = pd.to_datetime(processed_data['Time (UTC)']).min()
-        plot_methane_distribution(processed_data, time_filter=sample_time, tracer_column='tracer_concentration')
+        # 7. Simulate drone navigation decision
+        print("Simulating drone navigation...")
+        current_position = (prepared_data['nav_df']['latitude'].iloc[0], prepared_data['nav_df']['longitude'].iloc[0])
+        next_waypoint, prediction, uncertainty = simulate_drone_navigation(
+            regression_model, prepared_data['nav_df'], current_position
+        )
+        
+        # 8. Create a dynamic visualization of methane distribution
+        print("Generating dynamic visualization of methane distribution...")
+        if 'time' in processed_data.columns:
+            # Convert time to datetime if it's not already
+            if not pd.api.types.is_datetime64_any_dtype(processed_data['time']):
+                processed_data['Time (UTC)'] = pd.to_datetime(processed_data['time'])
+            else:
+                processed_data['Time (UTC)'] = processed_data['time']
+                
+            # Create a dynamic animation of methane concentration over time
+            animate_methane_distribution(
+                processed_data, 
+                interval=1000, 
+                save_path="methane_concentration_animation.mp4"
+            )
+        else:
+            # If no time column is available, create a static plot
+            plot_methane_distribution(
+                processed_data, 
+                tracer_column='tracer_concentration',
+                save_path="methane_concentration_map.png"
+            )
     else:
-        plot_methane_distribution(processed_data, tracer_column='tracer_concentration')
+        print("No methane leak detected. Continuing monitoring...")
+        plot_methane_distribution(
+            processed_data, 
+            tracer_column='tracer_concentration',
+            save_path="methane_concentration_map.png"
+        )
     
     print("Project execution complete.")
 
