@@ -1,4 +1,4 @@
-Time,i_value,j_value,latitude,longitude,u_west_to_east_wind,v_south_to_north_wind,temprature,relative_humidity,vertical_velocity,pressure,water_vapour,turbulent_kinatic_energy,sensible_heat_flux,Latent_heat_flux,tracer_concentration,leakage
+time,i_value,j_value,latitude,longitude,u_west_to_east_wind,v_south_to_north_wind,temprature,relative_humidity,vertical_velocity,pressure,water_vapour,turbulent_kinatic_energy,precipitation_rate,sensible_heat_flux,latent_heat_flux,tracer_concentration
 18.0,13,49,33.262,-81.679,-5.10182,-1.4157,22.92665,52.52708,24.596,1010.69061,9.30421,1.3582,389.84586,20.73942,4.83e-12,1
 14.9,16,16,33.229,-81.676,-4.25269,2.7344,19.73602,70.10011,20.32247,1010.92865,10.15847,1.77735,182.09592,62.51543,0.0,0
 12.6,8,46,33.259,-81.684,-5.47186,1.50515,17.48604,84.70695,-20.11244,1010.70654,10.63293,0.85855,135.93021,-2.67671,3.24e-10,1
