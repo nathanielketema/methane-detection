@@ -30,13 +30,13 @@ def main():
     classifier.fit(prepared_data['X'], prepared_data['y_binary'], feature_names=prepared_data['feature_columns'])
     
     # 5. Use the classifier to predict if there's a leak
-    print("Detecting potential methane leaks...")
-    # For demonstration, we'll use the navigation data for prediction
-    nav_features = prepared_data['nav_df'][prepared_data['feature_columns']].values
-    leak_predictions = classifier.predict(nav_features)
+    print("Detecting potential methane leaks using all available data...")
+
+    leak_predictions = classifier.predict(prepared_data['X'])
     
     leak_detected = any(leak_predictions == 1)
     print(f"Leak detection result: {'Leak detected!' if leak_detected else 'No leak detected.'}")
+    print(f"Number of potential leak points detected: {sum(leak_predictions == 1)} out of {len(leak_predictions)}")
     
     if leak_detected:
         # 6. If leak is detected, train the regression model to predict concentration
@@ -44,15 +44,24 @@ def main():
         regression_model = QuantumGaussianRegression()
         regression_model.fit(prepared_data['X'], prepared_data['y'])
         
-        # 7. Simulate drone navigation decision
+        # 7. Predict methane concentration for all points
+        methane_concentrations = regression_model.predict(prepared_data['X'])
+        
+        # Create a DataFrame with original indices for mapping predictions back to processed data
+        prediction_indices = features.index[:len(methane_concentrations)]
+        
+        # Add predictions to the original data for visualization
+        processed_data['predicted_concentration'] = pd.Series(methane_concentrations, index=prediction_indices)
+        
+        # 8. For drone navigation simulation, we'll still use a small subset of data
         print("Simulating drone navigation...")
-        current_position = (prepared_data['nav_df']['latitude'].iloc[0], prepared_data['nav_df']['longitude'].iloc[0])
+        current_position = (processed_data['latitude'].iloc[0], processed_data['longitude'].iloc[0])
         next_waypoint, prediction, uncertainty = simulate_drone_navigation(
             regression_model, prepared_data['nav_df'], current_position
         )
         
-        # 8. Create a dynamic visualization of methane distribution
-        print("Generating dynamic visualization of methane distribution...")
+        # 9. Create a visualization of methane distribution
+        print("Generating visualization of methane distribution...")
         if 'time' in processed_data.columns:
             # Convert time to datetime if it's not already
             if not pd.api.types.is_datetime64_any_dtype(processed_data['time']):
