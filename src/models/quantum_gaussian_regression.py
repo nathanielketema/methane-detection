@@ -1,12 +1,13 @@
 import numpy as np
-from squlearn.kernel import ProjectedQuantumKernel
-from squlearn.kernel.parameters import WeinGrowQuantumParameters
+from squlearn.kernel.matrix import FidelityKernel
 from squlearn.kernel.ml import QGPR
-from qiskit.circuit.library import ZZFeatureMap
+from squlearn import Executor
+from squlearn.encoding_circuit import HubregtsenEncodingCircuit
 from qiskit_algorithms.utils import algorithm_globals
+from qiskit_aer import Aer
 
 class QuantumGaussianRegression:
-    def __init__(self, alpha=1e-10, n_qubits=None, shots=1024):
+    def __init__(self, alpha=1e-10, n_qubits=None, shots=1024, normalize_y=False):
         """
         Initializes the QuantumGaussianRegression model using squlearn's QGPR.
         
@@ -14,10 +15,12 @@ class QuantumGaussianRegression:
           alpha (float): Regularization parameter for the Gaussian process.
           n_qubits (int): Number of qubits to use in the quantum circuit. If None, will be determined from data dimensions.
           shots (int): Number of shots for quantum circuit execution.
+          normalize_y (bool): Whether to normalize target values by removing mean and scaling to unit variance.
         """
         self.alpha = alpha
         self.n_qubits = n_qubits
         self.shots = shots
+        self.normalize_y = normalize_y
         self.model = None
         self.kernel = None
         
@@ -36,31 +39,41 @@ class QuantumGaussianRegression:
         if self.n_qubits is None:
             self.n_qubits = min(X.shape[1], 8)  # Use up to 8 qubits based on features
         
-        # Create a quantum feature map based on data dimension
-        feature_map = ZZFeatureMap(feature_dimension=X.shape[1], reps=2)
+        # Create an encoding circuit and executor for squlearn
+        num_features = X.shape[1]
         
-        # Initialize quantum parameters
-        quantum_params = WeinGrowQuantumParameters(
-            feature_map=feature_map,
-            backend_type="qasm_simulator",
+        # Create squlearn's encoding circuit
+        encoding_circuit = HubregtsenEncodingCircuit(
+            num_qubits=self.n_qubits,
+            num_features=num_features,
+            num_layers=2
+        )
+        
+        # Create squlearn's executor
+        executor = Executor(
+            backend=Aer.get_backend('qasm_simulator'),
             shots=self.shots
         )
         
-        # Create the quantum kernel
-        self.kernel = ProjectedQuantumKernel(
-            quantum_parameters=quantum_params,
-            enforce_psd=True
+        # Create the FidelityKernel with the encoding circuit and executor
+        self.kernel = FidelityKernel(
+            encoding_circuit=encoding_circuit,
+            executor=executor
         )
+        
+        # Assign random parameters to the kernel (as shown in the documentation example)
+        self.kernel.assign_parameters(np.random.rand(encoding_circuit.num_parameters))
         
         # Create and fit the QGPR model
         self.model = QGPR(
             quantum_kernel=self.kernel, 
-            alpha=self.alpha,
-            optimizer="L-BFGS-B"
+            sigma=self.alpha,
+            normalize_y=self.normalize_y,
+            full_regularization=True
         )
         
         self.model.fit(X, y)
-        print("Quantum Gaussian Regression model training complete (using squlearn QGPR).")
+        print("Quantum Gaussian Process Regression model training complete (using squlearn QGPR).")
     
     def predict(self, X):
         """
