@@ -4,3 +4,8 @@ matplotlib
 scikit-learn
 qiskit
 ipykernel
+squlearn
+qiskit-algorithms
+qiskit-aer
+qiskit-ibm-runtime
+scipy>=1.8.0
