@@ -45,13 +45,14 @@ def main():
         regression_model.fit(prepared_data['X'], prepared_data['y'])
         
         # 7. Predict methane concentration for all points
-        methane_concentrations = regression_model.predict(prepared_data['X'])
+        methane_concentrations, concentration_uncertainties = regression_model.predict(prepared_data['X'])
         
         # Create a DataFrame with original indices for mapping predictions back to processed data
         prediction_indices = features.index[:len(methane_concentrations)]
         
         # Add predictions to the original data for visualization
         processed_data['predicted_concentration'] = pd.Series(methane_concentrations, index=prediction_indices)
+        processed_data['prediction_uncertainty'] = pd.Series(concentration_uncertainties, index=prediction_indices)
         
         # 8. For drone navigation simulation, we'll still use a small subset of data
         print("Simulating drone navigation...")
