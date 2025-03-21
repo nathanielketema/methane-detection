@@ -7,9 +7,11 @@ from src.data_preparation import prepare_training_data
 from src.models.methane_leak_classifier import MethaneLeakClassifier
 from src.models.quantum_gaussian_regression import QuantumGaussianRegression
 from src.drone_navigation import simulate_drone_navigation
-from src.visualization import plot_methane_distribution, animate_methane_distribution
+from src.visualization import plot_methane_distribution, animate_methane_distribution, create_dynamic_methane_map
+import argparse
+import os
 
-def main():
+def main(force_retrain=False):
     print("Starting Methane Leak Detection Project...")
 
     # 1. Process the raw data from data/raw directory
@@ -42,7 +44,7 @@ def main():
         # 6. If leak is detected, train the regression model to predict concentration
         print("Leak detected! Training the regression model to predict methane concentration...")
         regression_model = QuantumGaussianRegression()
-        regression_model.fit(prepared_data['X'], prepared_data['y'])
+        regression_model.fit(prepared_data['X'], prepared_data['y'], force_retrain=force_retrain)
         
         # 7. Predict methane concentration for all points
         methane_concentrations, concentration_uncertainties = regression_model.predict(prepared_data['X'])
@@ -61,7 +63,7 @@ def main():
             regression_model, prepared_data['nav_df'], current_position
         )
         
-        # 9. Create a visualization of methane distribution
+        # 9. Create both static and dynamic visualizations of methane distribution
         print("Generating visualization of methane distribution...")
         if 'time' in processed_data.columns:
             # Convert time to datetime if it's not already
@@ -74,24 +76,81 @@ def main():
             animate_methane_distribution(
                 processed_data, 
                 interval=1000, 
-                save_path="methane_concentration_animation.mp4"
+                save_path="outputs/methane_concentration_animation.mp4"
             )
+            
+            # Step 9: Dynamic Methane Mapping - Create interactive visualizations
+            print("Creating dynamic methane mapping visualizations...")
+            
+            # Create Folium-based interactive map
+            print("Generating Folium interactive map...")
+            folium_map = create_dynamic_methane_map(
+                processed_data,
+                save_path="outputs/methane_map_folium.html",
+                map_type="folium",
+                critical_threshold=0.8,
+                uncertainty_column='prediction_uncertainty'
+            )
+            
+            # Create Plotly-based interactive map
+            print("Generating Plotly interactive map...")
+            plotly_map = create_dynamic_methane_map(
+                processed_data,
+                save_path="outputs/methane_map_plotly.html",
+                map_type="plotly",
+                critical_threshold=0.8,
+                uncertainty_column='prediction_uncertainty'
+            )
+            
+            # Generate interactive dashboard code
+            print("Generating interactive dashboard code...")
+            dashboard_instructions = create_dynamic_methane_map(
+                processed_data,
+                save_path="outputs/methane_dashboard.py",
+                map_type="plotly-dashboard",
+                critical_threshold=0.8,
+                uncertainty_column='prediction_uncertainty'
+            )
+            print(dashboard_instructions)
         else:
             # If no time column is available, create a static plot
             plot_methane_distribution(
                 processed_data, 
                 tracer_column='tracer_concentration',
-                save_path="methane_concentration_map.png"
+                save_path="outputs/methane_concentration_map.png"
+            )
+            
+            # Also create a static interactive map
+            print("Creating static interactive methane map...")
+            folium_map = create_dynamic_methane_map(
+                processed_data,
+                save_path="outputs/methane_map_static.html",
+                map_type="folium",
+                critical_threshold=0.8,
+                uncertainty_column='prediction_uncertainty'
             )
     else:
         print("No methane leak detected. Continuing monitoring...")
         plot_methane_distribution(
             processed_data, 
             tracer_column='tracer_concentration',
-            save_path="methane_concentration_map.png"
+            save_path="outputs/methane_concentration_map.png"
         )
     
     print("Project execution complete.")
 
 if __name__ == "__main__":
-    main()
+    # Set up command-line argument parsing
+    parser = argparse.ArgumentParser(description='Methane Leak Detection Project')
+    parser.add_argument('--force-retrain', action='store_true', 
+                        help='Force retraining of models even if saved models exist')
+    
+    # Parse arguments
+    args = parser.parse_args()
+    
+    # Create necessary directories
+    os.makedirs("outputs", exist_ok=True)
+    os.makedirs("models", exist_ok=True)
+    
+    # Run the main function with parsed arguments
+    main(force_retrain=args.force_retrain)

@@ -10,3 +10,9 @@ qiskit-aer
 qiskit-ibm-runtime
 scipy>=1.8.0
 seaborn
+folium
+plotly
+geopandas
+dash
+dash-leaflet
+joblib
