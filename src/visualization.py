@@ -407,8 +407,11 @@ def _create_plotly_dashboard(data, save_path=None):
     This function returns instructions on how to run the dashboard
     instead of the dashboard object itself.
     """
-    # Generate a Python file for the dashboard
-    dashboard_code = f'''
+    # Convert data to JSON string for embedding in the code
+    data_json_str = data.to_json(orient='records', date_format='iso')
+    
+    # Generate a Python file for the dashboard without using f-string for the data
+    dashboard_code = '''
 # Save this to a file named methane_dashboard.py and run with "python methane_dashboard.py"
 import dash
 from dash import dcc, html
@@ -419,18 +422,18 @@ import json
 import os
 
 # Load the data
-data_json = {data.to_json(orient='records', date_format='iso')}
+data_json = DATA_JSON_PLACEHOLDER
 df = pd.read_json(json.dumps(data_json))
 
 # Convert time column back to datetime if it exists
 if 'Time (UTC)' in df.columns:
     df['Time (UTC)'] = pd.to_datetime(df['Time (UTC)'])
     all_timestamps = sorted(df['Time (UTC)'].unique())
-    time_marks = {{int(i): ts.strftime('%H:%M:%S') 
-                  for i, ts in enumerate(all_timestamps)}}
+    time_marks = {int(i): ts.strftime('%H:%M:%S') 
+                  for i, ts in enumerate(all_timestamps)}
 else:
     all_timestamps = [None]
-    time_marks = {{0: 'N/A'}}
+    time_marks = {0: 'N/A'}
 
 # Create the Dash app
 app = dash.Dash(__name__)
@@ -449,19 +452,19 @@ app.layout = html.Div([
                 marks=time_marks,
                 step=None,
             ),
-        ], style={{'width': '100%', 'padding': '10px'}}),
+        ], style={'width': '100%', 'padding': '10px'}),
         
         html.Div([
             html.H3("Methane Concentration Map"),
             dcc.Graph(id='methane-map'),
-        ], style={{'width': '70%', 'display': 'inline-block', 'padding': '10px'}}),
+        ], style={'width': '70%', 'display': 'inline-block', 'padding': '10px'}),
         
         html.Div([
             html.H3("Statistics"),
             html.Div(id='stats-display'),
             html.H4("Critical Points"),
             html.Div(id='critical-points-table'),
-        ], style={{'width': '25%', 'display': 'inline-block', 'vertical-align': 'top', 'padding': '10px'}}),
+        ], style={'width': '25%', 'display': 'inline-block', 'vertical-align': 'top', 'padding': '10px'}),
     ]),
 ])
 
@@ -568,6 +571,9 @@ if __name__ == '__main__':
     print("Access the dashboard at http://127.0.0.1:8050")
     app.run_server(debug=True)
 '''
+    
+    # Replace the placeholder with the actual JSON data
+    dashboard_code = dashboard_code.replace('DATA_JSON_PLACEHOLDER', data_json_str)
     
     # Save the dashboard code to a file if requested
     if save_path:
