@@ -30,6 +30,10 @@ class QuantumGaussianRegression:
         self.model_dir = model_dir
         self.encoding_circuit = None
         
+        # Store training data explicitly
+        self.X_train = None
+        self.y_train = None
+        
         # Create model directory if it doesn't exist
         os.makedirs(self.model_dir, exist_ok=True)
         
@@ -53,11 +57,15 @@ class QuantumGaussianRegression:
         model_hash = f"qgpr_nqubits{self.n_qubits or X.shape[1]}_alpha{self.alpha}_normalize{self.normalize_y}_samples{X.shape[0]}_features{X.shape[1]}"
         model_path = os.path.join(self.model_dir, f"{model_hash}.joblib")
         
+        # Store the training data
+        self.X_train = X.copy()
+        self.y_train = y.copy()
+        
         # Try to load a pre-trained model if it exists and we're not forcing a retrain
         if not force_retrain and os.path.exists(model_path):
             print(f"Loading pre-trained QGPR model from {model_path}")
-            self._load_model(model_path)
-            return self
+            if self._load_model(model_path):
+                return self
         
         print("Training new QGPR model...")
         start_time = time.time()
@@ -145,23 +153,32 @@ class QuantumGaussianRegression:
         if self.model is None:
             raise ValueError("Cannot save: model has not been fitted yet.")
         
-        # Create a dictionary with all necessary components to recreate the model
-        model_data = {
-            'model': self.model,
-            'kernel': self.kernel,
-            'alpha': self.alpha,
-            'n_qubits': self.n_qubits,
-            'shots': self.shots,
-            'normalize_y': self.normalize_y,
-            'encoding_circuit': self.encoding_circuit
-        }
-        
-        # Save model to file
+        # Instead of saving the entire model which contains unpicklable lambdas,
+        # save only the necessary trained parameters to recreate the model state
         try:
-            joblib.dump(model_data, path)
-            print(f"Model successfully saved to {path}")
+            # Use the explicitly stored training data instead of trying to extract it from the model
+            model_params = {
+                'alpha': self.alpha,
+                'n_qubits': self.n_qubits,
+                'shots': self.shots,
+                'normalize_y': self.normalize_y,
+                # Save the kernel parameters instead of the kernel itself
+                'kernel_parameters': self.kernel.get_parameters() if hasattr(self.kernel, 'get_parameters') else None,
+                # Save X_train and y_train directly from the class attributes
+                'X_train': self.X_train,
+                'y_train': self.y_train,
+                # Save kernel parameters from the model if available
+                'model_params': {
+                    'alpha': getattr(self.model, 'alpha', None),
+                    'normalize_y': getattr(self.model, 'normalize_y', None)
+                }
+            }
+            
+            joblib.dump(model_params, path)
+            print(f"Model parameters successfully saved to {path}")
         except Exception as e:
             print(f"Error saving model: {e}")
+            print("Continuing without saving the model...")
     
     def _load_model(self, path):
         """
@@ -174,22 +191,67 @@ class QuantumGaussianRegression:
           bool: True if model was successfully loaded
         """
         try:
-            # Load model data from file
-            model_data = joblib.load(path)
+            # Load model parameters from file
+            model_params = joblib.load(path)
             
-            # Restore model components
-            self.model = model_data['model']
-            self.kernel = model_data['kernel']
-            self.alpha = model_data['alpha']
-            self.n_qubits = model_data['n_qubits']
-            self.shots = model_data['shots']
-            self.normalize_y = model_data['normalize_y']
-            self.encoding_circuit = model_data['encoding_circuit']
+            # Restore model parameters
+            self.alpha = model_params['alpha']
+            self.n_qubits = model_params['n_qubits']
+            self.shots = model_params['shots']
+            self.normalize_y = model_params['normalize_y']
             
-            print(f"Model successfully loaded from {path}")
+            # Restore training data
+            self.X_train = model_params['X_train']
+            self.y_train = model_params['y_train']
+            
+            # Check if we have valid training data
+            if self.X_train is None or self.y_train is None:
+                print(f"Error: Could not recreate model as training data is missing")
+                self.model = None
+                return False
+            
+            # Recreate the encoding circuit
+            num_features = self.X_train.shape[1]
+            self.encoding_circuit = HubregtsenEncodingCircuit(
+                num_qubits=self.n_qubits,
+                num_features=num_features,
+                num_layers=2
+            )
+            
+            # Recreate executor
+            executor = Executor(
+                backend=Aer.get_backend('qasm_simulator'),
+                shots=self.shots
+            )
+            
+            # Recreate the kernel
+            self.kernel = FidelityKernel(
+                encoding_circuit=self.encoding_circuit,
+                executor=executor
+            )
+            
+            # Restore kernel parameters if available
+            if model_params['kernel_parameters'] is not None:
+                self.kernel.assign_parameters(model_params['kernel_parameters'])
+            
+            # Recreate the model
+            self.model = QGPR(
+                quantum_kernel=self.kernel, 
+                sigma=self.alpha,
+                normalize_y=self.normalize_y,
+                full_regularization=True
+            )
+            
+            # Fit with saved data
+            print("Fitting model with saved training data...")
+            self.model.fit(self.X_train, self.y_train)
+            print(f"Model successfully loaded and recreated from {path}")
             return True
+            
         except Exception as e:
             print(f"Error loading model: {e}")
+            # Reset the model to None to ensure accurate state reporting
+            self.model = None
             return False
 
 if __name__ == "__main__":
