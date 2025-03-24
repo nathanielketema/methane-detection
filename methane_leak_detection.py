@@ -41,11 +41,22 @@ def main(force_retrain=False):
     print(f"Number of potential leak points detected: {sum(leak_predictions == 1)} out of {len(leak_predictions)}")
     
     if leak_detected:
-        # 6. If leak is detected, train the regression model to predict concentration
+        # 6. If leak is detected, train the regression model to predict methane concentration
         print("Leak detected! Training the regression model to predict methane concentration...")
         regression_model = QuantumGaussianRegression()
         regression_model.fit(prepared_data['X'], prepared_data['y'], force_retrain=force_retrain)
         
+        # Check if the model was properly fitted
+        if regression_model.model is None:
+            print("Error: Regression model training failed. Forcing a retrain...")
+            regression_model.fit(prepared_data['X'], prepared_data['y'], force_retrain=True)
+            
+            # Double-check if model is still None after forced retraining
+            if regression_model.model is None:
+                print("Critical error: Regression model training still failed after forced retrain.")
+                print("Project execution incomplete. Please check the code and training data.")
+                return
+
         # 7. Predict methane concentration for all points
         methane_concentrations, concentration_uncertainties = regression_model.predict(prepared_data['X'])
         
