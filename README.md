@@ -35,8 +35,7 @@ The system provides a comprehensive approach to methane leak detection and monit
 - Intelligent drone navigation system to track methane sources
 - Visualization tools for methane distribution patterns
   - Static visualizations (PNG format)
-  - Interactive maps (Folium and Plotly)
-  - Dynamic dashboards (Dash)
+  - Interactive maps (Folium)
   - Animations of methane concentration over time
 - Memory-efficient handling of large datasets
 - Model evaluation tools with comprehensive metrics
@@ -46,10 +45,9 @@ The system provides a comprehensive approach to methane leak detection and monit
 - Python 3.8+
 - Dependencies:
   - Core data processing: pandas, numpy, scipy>=1.8.0
-  - Visualization: matplotlib, seaborn, folium, plotly, geopandas
+  - Visualization: matplotlib, seaborn, folium, geopandas
   - Machine learning: scikit-learn
   - Quantum computing: qiskit, qiskit-algorithms, qiskit-aer, qiskit-ibm-runtime, squlearn
-  - Interactive dashboards: dash, dash-leaflet
   - Development: ipykernel
 
 For exact versions, see `requirements.txt`
@@ -135,10 +133,9 @@ This will:
 The system generates several outputs in the `outputs/` directory:
 
 - **Methane concentration maps**: Static PNG files showing the spatial distribution of methane
-- **Interactive maps**: HTML files with Folium and Plotly-based interactive maps
+- **Interactive maps**: HTML files with Folium-based interactive maps
 - **Animations**: MP4 files showing the temporal evolution of methane concentration
 - **Model evaluation**: Various plots showing model performance metrics
-- **Dashboard code**: Python files to run interactive Dash dashboards
 
 ### Examples
 

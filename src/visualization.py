@@ -4,8 +4,6 @@ import numpy as np
 from matplotlib import animation
 import folium
 from folium.plugins import HeatMap, TimestampedGeoJson
-import plotly.express as px
-import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import json
 import os
@@ -154,12 +152,12 @@ def create_dynamic_methane_map(data: pd.DataFrame,
       data (pd.DataFrame): DataFrame containing at least 'latitude', 'longitude', 'tracer_concentration', 
                          'Time (UTC)' columns and optionally prediction_uncertainty.
       save_path (str, optional): If provided, the interactive map will be saved to this file.
-      map_type (str): Type of map to create ('folium', 'plotly', or 'plotly-dashboard').
+      map_type (str): Type of map to create ('folium').
       critical_threshold (float): Threshold value (as percentile) to highlight critical methane levels.
       uncertainty_column (str): Column name containing uncertainty values.
     
     Returns:
-      map_obj: The created map object (folium.Map or plotly Figure)
+      map_obj: The created map object (folium.Map)
     """
     # Ensure data has the necessary columns
     required_cols = ['latitude', 'longitude', 'tracer_concentration']
@@ -182,12 +180,8 @@ def create_dynamic_methane_map(data: pd.DataFrame,
     # Create visualization based on selected map type
     if map_type == 'folium':
         return _create_folium_map(data, save_path)
-    elif map_type == 'plotly':
-        return _create_plotly_map(data, save_path)
-    elif map_type == 'plotly-dashboard':
-        return _create_plotly_dashboard(data, save_path)
     else:
-        raise ValueError("map_type must be one of: 'folium', 'plotly', 'plotly-dashboard'")
+        raise ValueError("map_type must be 'folium'")
 
 def _create_folium_map(data, save_path=None):
     """
@@ -306,284 +300,6 @@ def _create_folium_map(data, save_path=None):
         m.save(save_path)
     
     return m
-
-def _create_plotly_map(data, save_path=None):
-    """
-    Creates a plotly-based static or animated map based on the data.
-    """
-    has_time = 'Time (UTC)' in data.columns
-    
-    # Create a copy of the dataset for visualization
-    vis_data = data.copy()
-    
-    # Create a color map for the critical and uncertainty markers
-    vis_data['marker_color'] = 'blue'  # Default
-    vis_data.loc[vis_data['high_uncertainty'], 'marker_color'] = 'orange'
-    vis_data.loc[vis_data['is_critical'], 'marker_color'] = 'red'
-    vis_data.loc[(vis_data['is_critical'] & vis_data['high_uncertainty']), 'marker_color'] = 'purple'
-    
-    # Adjust marker size based on concentration
-    min_size = 5
-    max_size = 15
-    vis_data['marker_size'] = min_size + (max_size - min_size) * (
-        (vis_data['tracer_concentration'] - vis_data['tracer_concentration'].min()) / 
-        (vis_data['tracer_concentration'].max() - vis_data['tracer_concentration'].min())
-    )
-    
-    if has_time:
-        # For animated visualization with time data
-        fig = px.scatter_mapbox(
-            vis_data, 
-            lat="latitude", 
-            lon="longitude", 
-            color="tracer_concentration",
-            size="marker_size",
-            color_continuous_scale="Viridis",
-            animation_frame="Time (UTC)" if has_time else None,
-            mapbox_style="open-street-map",
-            hover_data=["tracer_concentration", "is_critical", "high_uncertainty"],
-            zoom=10,
-            title="Dynamic Methane Concentration Map"
-        )
-    else:
-        # Static map without animation
-        fig = px.scatter_mapbox(
-            vis_data, 
-            lat="latitude", 
-            lon="longitude", 
-            color="tracer_concentration",
-            size="marker_size",
-            color_continuous_scale="Viridis",
-            mapbox_style="open-street-map",
-            hover_data=["tracer_concentration", "is_critical", "high_uncertainty"],
-            zoom=10,
-            title="Methane Concentration Map"
-        )
-    
-    # Highlight critical points and uncertainty with custom markers
-    for label, color in [
-        ("Critical + High Uncertainty", "purple"),
-        ("Critical", "red"),
-        ("High Uncertainty", "orange")
-    ]:
-        subset = vis_data[vis_data['marker_color'] == color]
-        if not subset.empty:
-            fig.add_trace(go.Scattermapbox(
-                lat=subset['latitude'],
-                lon=subset['longitude'],
-                mode='markers',
-                marker=dict(
-                    size=subset['marker_size'] + 2,
-                    color=color,
-                    opacity=0.7
-                ),
-                name=label,
-                hoverinfo='none'
-            ))
-    
-    # Improve layout
-    fig.update_layout(
-        mapbox=dict(center=dict(lat=vis_data['latitude'].mean(), lon=vis_data['longitude'].mean())),
-        margin={"r": 0, "t": 30, "l": 0, "b": 0},
-        legend=dict(
-            orientation='h',
-            yanchor='bottom',
-            y=1.02,
-            xanchor='right',
-            x=1
-        )
-    )
-    
-    if save_path:
-        fig.write_html(save_path)
-    
-    return fig
-
-def _create_plotly_dashboard(data, save_path=None):
-    """
-    Creates a more advanced plotly dashboard that can be deployed as a web app.
-    Requires: dash and dash-leaflet
-    
-    This function returns instructions on how to run the dashboard
-    instead of the dashboard object itself.
-    """
-    # Convert data to JSON string for embedding in the code
-    data_json_str = data.to_json(orient='records', date_format='iso')
-    
-    # Generate a Python file for the dashboard without using f-string for the data
-    dashboard_code = '''
-# Save this to a file named methane_dashboard.py and run with "python methane_dashboard.py"
-import dash
-from dash import dcc, html
-from dash.dependencies import Input, Output
-import plotly.express as px
-import pandas as pd
-import json
-import os
-
-# Load the data
-data_json = DATA_JSON_PLACEHOLDER
-df = pd.read_json(json.dumps(data_json))
-
-# Convert time column back to datetime if it exists
-if 'Time (UTC)' in df.columns:
-    df['Time (UTC)'] = pd.to_datetime(df['Time (UTC)'])
-    all_timestamps = sorted(df['Time (UTC)'].unique())
-    time_marks = {int(i): ts.strftime('%H:%M:%S') 
-                  for i, ts in enumerate(all_timestamps)}
-else:
-    all_timestamps = [None]
-    time_marks = {0: 'N/A'}
-
-# Create the Dash app
-app = dash.Dash(__name__)
-
-app.layout = html.Div([
-    html.H1("Dynamic Methane Leak Detection Dashboard"),
-    
-    html.Div([
-        html.Div([
-            html.H3("Time Control"),
-            dcc.Slider(
-                id='time-slider',
-                min=0,
-                max=len(all_timestamps) - 1,
-                value=0,
-                marks=time_marks,
-                step=None,
-            ),
-        ], style={'width': '100%', 'padding': '10px'}),
-        
-        html.Div([
-            html.H3("Methane Concentration Map"),
-            dcc.Graph(id='methane-map'),
-        ], style={'width': '70%', 'display': 'inline-block', 'padding': '10px'}),
-        
-        html.Div([
-            html.H3("Statistics"),
-            html.Div(id='stats-display'),
-            html.H4("Critical Points"),
-            html.Div(id='critical-points-table'),
-        ], style={'width': '25%', 'display': 'inline-block', 'vertical-align': 'top', 'padding': '10px'}),
-    ]),
-])
-
-@app.callback(
-    [Output('methane-map', 'figure'),
-     Output('stats-display', 'children'),
-     Output('critical-points-table', 'children')],
-    [Input('time-slider', 'value')]
-)
-def update_map(time_idx):
-    if 'Time (UTC)' in df.columns:
-        selected_time = all_timestamps[time_idx]
-        filtered_df = df[df['Time (UTC)'] == selected_time]
-    else:
-        filtered_df = df
-    
-    # Create the map
-    fig = px.scatter_mapbox(
-        filtered_df, 
-        lat="latitude", 
-        lon="longitude", 
-        color="tracer_concentration",
-        size=filtered_df['tracer_concentration'] * 50,  # Scale appropriately
-        color_continuous_scale="Viridis",
-        hover_data=["tracer_concentration", "is_critical", "high_uncertainty"],
-        zoom=10,
-        mapbox_style="open-street-map"
-    )
-    
-    # Add markers for critical and high uncertainty points
-    for label, condition, color in [
-        ("Critical + High Uncertainty", 
-         (filtered_df['is_critical'] & filtered_df['high_uncertainty']), "purple"),
-        ("Critical", 
-         (filtered_df['is_critical'] & ~filtered_df['high_uncertainty']), "red"),
-        ("High Uncertainty", 
-         (~filtered_df['is_critical'] & filtered_df['high_uncertainty']), "orange"),
-    ]:
-        subset = filtered_df[condition]
-        if not subset.empty:
-            fig.add_trace({
-                'type': 'scattermapbox',
-                'lat': subset['latitude'],
-                'lon': subset['longitude'],
-                'mode': 'markers',
-                'marker': {
-                    'size': subset['tracer_concentration'] * 50 + 5,
-                    'color': color,
-                    'opacity': 0.7
-                },
-                'name': label,
-                'showlegend': True
-            })
-    
-    # Update layout
-    fig.update_layout(
-        mapbox=dict(center=dict(lat=filtered_df['latitude'].mean(), 
-                                 lon=filtered_df['longitude'].mean())),
-        margin={"r": 0, "t": 0, "l": 0, "b": 0},
-        legend=dict(
-            orientation='h',
-            yanchor='bottom',
-            y=1.02,
-            xanchor='right',
-            x=1
-        )
-    )
-    
-    # Calculate statistics
-    total_points = len(filtered_df)
-    critical_points = sum(filtered_df['is_critical'])
-    high_uncertainty_points = sum(filtered_df['high_uncertainty'])
-    
-    # Create statistics display
-    stats = html.Div([
-        html.P(f"Total Data Points: {total_points}"),
-        html.P(f"Critical Points: {critical_points} ({critical_points/total_points*100:.1f}%)"),
-        html.P(f"High Uncertainty: {high_uncertainty_points} ({high_uncertainty_points/total_points*100:.1f}%)"),
-        html.P(f"Max Concentration: {filtered_df['tracer_concentration'].max():.4f}"),
-        html.P(f"Mean Concentration: {filtered_df['tracer_concentration'].mean():.4f}")
-    ])
-    
-    # Create critical points table
-    critical_df = filtered_df[filtered_df['is_critical']]
-    if len(critical_df) > 0:
-        critical_table = html.Table([
-            html.Thead(html.Tr([html.Th('Lat'), html.Th('Lon'), html.Th('Conc.'), html.Th('Uncert')])),
-            html.Tbody([
-                html.Tr([
-                    html.Td(f"{row['latitude']:.4f}"),
-                    html.Td(f"{row['longitude']:.4f}"),
-                    html.Td(f"{row['tracer_concentration']:.4f}"),
-                    html.Td(f"{row['high_uncertainty']}")
-                ]) for _, row in critical_df.head(10).iterrows()
-            ])
-        ])
-    else:
-        critical_table = html.P("No critical points found")
-    
-    return fig, stats, critical_table
-
-if __name__ == '__main__':
-    print("Starting Methane Leak Detection Dashboard")
-    print("Access the dashboard at http://127.0.0.1:8050")
-    app.run_server(debug=True)
-'''
-    
-    # Replace the placeholder with the actual JSON data
-    dashboard_code = dashboard_code.replace('DATA_JSON_PLACEHOLDER', data_json_str)
-    
-    # Save the dashboard code to a file if requested
-    if save_path:
-        dashboard_file = os.path.join(os.path.dirname(save_path), 'methane_dashboard.py')
-        with open(dashboard_file, 'w') as f:
-            f.write(dashboard_code)
-        
-        return f"Dashboard code saved to {dashboard_file}. Run with 'python {dashboard_file}'"
-    
-    return dashboard_code
 
 if __name__ == "__main__":
     print("Visualization module - this module provides functions for visualizing methane concentration data")

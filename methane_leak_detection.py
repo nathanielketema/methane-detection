@@ -167,27 +167,6 @@ def main(force_retrain=False, max_retries=3):
                 critical_threshold=0.8,
                 uncertainty_column='prediction_uncertainty'
             )
-            
-            # Create Plotly-based interactive map
-            print("Generating Plotly interactive map...")
-            plotly_map = create_dynamic_methane_map(
-                processed_data,
-                save_path="outputs/methane_map_plotly.html",
-                map_type="plotly",
-                critical_threshold=0.8,
-                uncertainty_column='prediction_uncertainty'
-            )
-            
-            # Generate interactive dashboard code
-            print("Generating interactive dashboard code...")
-            dashboard_instructions = create_dynamic_methane_map(
-                processed_data,
-                save_path="outputs/methane_dashboard.py",
-                map_type="plotly-dashboard",
-                critical_threshold=0.8,
-                uncertainty_column='prediction_uncertainty'
-            )
-            print(dashboard_instructions)
         else:
             # If no time column is available, create a static plot
             plot_methane_distribution(
