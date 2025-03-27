@@ -1,6 +1,44 @@
 import os
 import pandas as pd
-from src.config import RAW_DATA_PATH, PROCESSED_DATA_PATH, FILE_NAME
+import numpy as np
+from typing import Dict, List, Tuple
+from src.config import RAW_DATA_PATH, PROCESSED_DATA_PATH, FILE_NAME, DATA_PROCESSING_CONFIG
+
+def validate_data(data: pd.DataFrame) -> Tuple[bool, List[str]]:
+    """
+    Validate the input data against required columns and value ranges.
+    
+    Parameters:
+        data (pd.DataFrame): Input data to validate
+        
+    Returns:
+        Tuple[bool, List[str]]: (is_valid, error_messages)
+    """
+    errors = []
+    
+    # Check required columns
+    missing_columns = [col for col in DATA_PROCESSING_CONFIG["required_columns"] 
+                      if col not in data.columns]
+    if missing_columns:
+        errors.append(f"Missing required columns: {missing_columns}")
+    
+    # Check data types
+    for col in data.columns:
+        if col in DATA_PROCESSING_CONFIG["column_ranges"]:
+            if not pd.api.types.is_numeric_dtype(data[col]):
+                errors.append(f"Column {col} must be numeric")
+            else:
+                # Check value ranges
+                min_val, max_val = DATA_PROCESSING_CONFIG["column_ranges"][col]
+                if data[col].min() < min_val or data[col].max() > max_val:
+                    errors.append(f"Column {col} contains values outside valid range [{min_val}, {max_val}]")
+    
+    # Check for missing values
+    missing_values = data[DATA_PROCESSING_CONFIG["required_columns"]].isnull().sum()
+    if missing_values.any():
+        errors.append(f"Missing values found in columns: {missing_values[missing_values > 0].to_dict()}")
+    
+    return len(errors) == 0, errors
 
 def load_raw_data(file_name=None):
     """
@@ -20,68 +58,58 @@ def load_raw_data(file_name=None):
     try:
         data = pd.read_csv(full_path)
         print(f"Loaded raw data from {full_path}")
+        
+        # Validate the loaded data
+        is_valid, errors = validate_data(data)
+        if not is_valid:
+            print("Data validation errors:")
+            for error in errors:
+                print(f"  - {error}")
+            raise ValueError("Data validation failed")
+            
     except Exception as e:
         print(f"Error loading data: {e}")
         raise e
     
     return data
 
-    
-def balance_data(data):
+def clean_data(data: pd.DataFrame) -> pd.DataFrame:
     """
-    Balance the dataset to have equal number of samples with 
-    tracer_concentration > 0 and tracer_concentration = 0.
+    Perform basic cleaning operations on the data.
+    
+    Parameters:
+        data (pd.DataFrame): Raw data to clean
+        
+    Returns:
+        pd.DataFrame: Cleaned data
     """
-    positive_tracer = data[data['tracer_concentration'] > 0]
-    zero_tracer = data[data['tracer_concentration'] == 0]
+    # Create a copy to avoid modifying the original data
+    cleaned_data = data.copy()
     
-    print(f"Original data distribution:")
-    print(f"  - Samples with tracer_concentration > 0: {len(positive_tracer)}")
-    print(f"  - Samples with tracer_concentration = 0: {len(zero_tracer)}")
-    
-    target_size = min(len(positive_tracer), len(zero_tracer))
-    
-    if len(positive_tracer) > target_size:
-        positive_tracer = positive_tracer.sample(n=target_size, random_state=42)
-    
-    if len(zero_tracer) > target_size:
-        zero_tracer = zero_tracer.sample(n=target_size, random_state=42)
-    
-    balanced_data = pd.concat([positive_tracer, zero_tracer])
-    
-    # Shuffle the data
-    balanced_data = balanced_data.sample(frac=1, random_state=42).reset_index(drop=True)
-    
-    print(f"Balanced data distribution:")
-    print(f"  - Samples with tracer_concentration > 0: {len(balanced_data[balanced_data['tracer_concentration'] > 0])}")
-    print(f"  - Samples with tracer_concentration = 0: {len(balanced_data[balanced_data['tracer_concentration'] == 0])}")
-    
-    return balanced_data
-
-
-def clean_data(data):
     # Drop rows with missing values
-    cleaned_data = data.dropna()
+    cleaned_data = cleaned_data.dropna()
     
+    # Drop constant columns
     cleaned_data = cleaned_data.drop(columns=['precipitation_rate'])
     print("Removed precipitation_rate column (constant zero value)")
     
-    # Add a boolean column 'leakage' based on tracer_concentration
-    cleaned_data['leakage'] = (cleaned_data['tracer_concentration'] > 0).astype(int)
-    print("Added 'leakage' column (1 if tracer_concentration > 0, 0 otherwise)")
-    
-    cleaned_data = balance_data(cleaned_data)
-
     # Normalize column names
-    cleaned_data.columns = [col.strip().lower() for col in data.columns]
+    cleaned_data.columns = [col.strip().lower() for col in cleaned_data.columns]
     
-    print("Data cleaned and balanced")
+    # Validate the cleaned data
+    is_valid, errors = validate_data(cleaned_data)
+    if not is_valid:
+        print("Data validation errors after cleaning:")
+        for error in errors:
+            print(f"  - {error}")
+        raise ValueError("Data validation failed after cleaning")
+    
+    print("Data cleaned and validated")
     return cleaned_data
-
 
 def process_data(save_output=True):
     """
-    Process the raw data by loading, cleaning, and balancing.
+    Process the raw data by loading and cleaning.
     
     Parameters:
         save_output (bool): Whether to save the processed data to disk
@@ -94,10 +122,9 @@ def process_data(save_output=True):
     
     if save_output:
         os.makedirs(PROCESSED_DATA_PATH, exist_ok=True)
-        
         output_file = os.path.join(PROCESSED_DATA_PATH, "processed_methane_data.csv")
         processed_data.to_csv(output_file, index=False)
-        print(f"Processed and balanced data saved to {output_file}")
+        print(f"Processed data saved to {output_file}")
     
     return processed_data
 

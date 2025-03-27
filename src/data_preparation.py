@@ -1,7 +1,106 @@
 import pandas as pd
 import numpy as np
+from typing import Dict, List, Tuple, Any
 
-def prepare_training_data(features, processed_data, sample_size=10000):
+def balance_data(data: pd.DataFrame, target_col: str = 'tracer_concentration') -> pd.DataFrame:
+    """
+    Balance the dataset to have equal number of samples with positive and zero values.
+    
+    Parameters:
+        data (pd.DataFrame): Input data
+        target_col (str): Column name for the target variable
+        
+    Returns:
+        pd.DataFrame: Balanced dataset
+    """
+    positive_samples = data[data[target_col] > 0]
+    zero_samples = data[data[target_col] == 0]
+    
+    print(f"Original data distribution:")
+    print(f"  - Samples with {target_col} > 0: {len(positive_samples)}")
+    print(f"  - Samples with {target_col} = 0: {len(zero_samples)}")
+    
+    target_size = min(len(positive_samples), len(zero_samples))
+    
+    if len(positive_samples) > target_size:
+        positive_samples = positive_samples.sample(n=target_size, random_state=42)
+    
+    if len(zero_samples) > target_size:
+        zero_samples = zero_samples.sample(n=target_size, random_state=42)
+    
+    balanced_data = pd.concat([positive_samples, zero_samples])
+    
+    # Shuffle the data
+    balanced_data = balanced_data.sample(frac=1, random_state=42).reset_index(drop=True)
+    
+    print(f"Balanced data distribution:")
+    print(f"  - Samples with {target_col} > 0: {len(balanced_data[balanced_data[target_col] > 0])}")
+    print(f"  - Samples with {target_col} = 0: {len(balanced_data[balanced_data[target_col] == 0])}")
+    
+    return balanced_data
+
+def get_feature_columns() -> List[str]:
+    """
+    Get the list of feature columns to use for model training.
+    
+    Returns:
+        List[str]: List of feature column names
+    """
+    return [
+        'time_numeric',
+        'u_west_to_east_wind',
+        'v_south_to_north_wind',
+        'temperature',
+        'relative_humidity',
+        'wind_speed',
+        'wind_direction',
+        'grid_distance',
+        'hour_sin',
+        'hour_cos'
+    ]
+
+def prepare_navigation_data(data: pd.DataFrame, n_points: int = 5) -> pd.DataFrame:
+    """
+    Prepare navigation data for drone routing.
+    
+    Parameters:
+        data (pd.DataFrame): Input data
+        n_points (int): Number of points to use for navigation
+        
+    Returns:
+        pd.DataFrame: Navigation data
+    """
+    required_columns = ['latitude', 'longitude', 'time', 'u_west_to_east_wind', 'temperature']
+    
+    # Ensure we have enough valid rows
+    valid_data = data.dropna(subset=required_columns)
+    valid_data = valid_data.sort_values('time')
+    
+    if len(valid_data) < n_points:
+        raise ValueError(f"Not enough valid data points for navigation. Need {n_points}, got {len(valid_data)}")
+    
+    # Convert time to numeric for the first n_points
+    valid_times = pd.to_datetime(valid_data['time'].iloc[:n_points]).astype(np.int64) // 10**9
+    time_numeric = valid_times - valid_times.min()
+    
+    navigation_data = {
+        'latitude': valid_data['latitude'].iloc[:n_points],
+        'longitude': valid_data['longitude'].iloc[:n_points],
+        'time_numeric': time_numeric,
+        'u_west_to_east_wind': valid_data['u_west_to_east_wind'].iloc[:n_points],
+        'temperature': valid_data['temperature'].iloc[:n_points]
+    }
+    
+    # Create DataFrame and verify no NaN values
+    nav_df = pd.DataFrame(navigation_data)
+    if nav_df.isna().any().any():
+        print("Columns with NaN values:", nav_df.columns[nav_df.isna().any()].tolist())
+        raise ValueError("NaN values found in navigation data")
+    
+    return nav_df
+
+def prepare_training_data(features: pd.DataFrame, processed_data: pd.DataFrame, 
+                         sample_size: int = 10000) -> Dict[str, Any]:
     """
     Prepare training data for the methane leak detection models.
     
@@ -18,52 +117,26 @@ def prepare_training_data(features, processed_data, sample_size=10000):
             - feature_columns: List of feature column names
             - nav_df: DataFrame with navigation data for drone routing
     """
-    # Define feature columns for model training
-    feature_columns = ['time_numeric', 'u_west_to_east_wind', 'temprature']
+    # Balance the data
+    balanced_data = balance_data(features)
     
     # Sample a smaller subset of data for training
-    sample_size = min(sample_size, len(features))
-    features = features.sample(n=sample_size, random_state=42)
+    sample_size = min(sample_size, len(balanced_data))
+    balanced_data = balanced_data.sample(n=sample_size, random_state=42)
     
     # Convert time column to numeric (seconds since first timestamp)
-    features['time_numeric'] = pd.to_datetime(features['time']).astype(np.int64) // 10**9
-    features['time_numeric'] = features['time_numeric'] - features['time_numeric'].min()
+    balanced_data['time_numeric'] = pd.to_datetime(balanced_data['time']).astype(np.int64) // 10**9
+    balanced_data['time_numeric'] = balanced_data['time_numeric'] - balanced_data['time_numeric'].min()
     
-    # Get complete rows only and ensure we have at least 5 valid points
-    required_columns = ['latitude', 'longitude', 'time', 'u_west_to_east_wind', 'temprature']
+    # Get feature columns
+    feature_columns = get_feature_columns()
     
-    # First ensure we have enough valid rows in processed_data
-    valid_data = processed_data.dropna(subset=required_columns)
-    
-    # Sort by time to ensure we get the first 5 chronological points
-    valid_data = valid_data.sort_values('time')
-    
-    if len(valid_data) < 5:
-        raise ValueError("Not enough valid data points for navigation")
-        
-    # Convert time to numeric for the first 5 points
-    valid_times = pd.to_datetime(valid_data['time'].iloc[:5]).astype(np.int64) // 10**9
-    time_numeric = valid_times - valid_times.min()
-    
-    navigation_data = {
-        'latitude': valid_data['latitude'].iloc[:5],
-        'longitude': valid_data['longitude'].iloc[:5],
-        'time_numeric': time_numeric,
-        'u_west_to_east_wind': valid_data['u_west_to_east_wind'].iloc[:5],
-        'temprature': valid_data['temprature'].iloc[:5]
-    }
-    
-    # Verify no NaN values in navigation data
-    nav_df = pd.DataFrame(navigation_data)
-    if nav_df.isna().any().any():
-        print("Columns with NaN values:", nav_df.columns[nav_df.isna().any()].tolist())
-        raise ValueError("NaN values found in navigation data")
+    # Prepare navigation data
+    nav_df = prepare_navigation_data(processed_data)
     
     # Prepare model input data
-    X = features[feature_columns].values
-    y = features['tracer_concentration'].values
-    
-    # Create binary target for leak detection (1 if concentration > 0, 0 otherwise)
+    X = balanced_data[feature_columns].values
+    y = balanced_data['tracer_concentration'].values
     y_binary = (y > 0).astype(int)
     
     return {
